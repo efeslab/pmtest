@@ -4,7 +4,7 @@ index 63897f3..110fce2 100644
 +++ b/nvml/src/examples/libpmemobj/tree_map/rbtree_map.c
 @@ -204,7 +204,9 @@ rbtree_map_rotate(TOID(struct rbtree_map) map,
  	
- 	NODE_P(child) = NODE_P(node);
+ 	PM_EQU(NODE_P(child), NODE_P(node));
  
 -	TX_SET(NODE_P(node), slots[NODE_LOCATION(node)], child);
 +	TX_ADD(NODE_P(node));
