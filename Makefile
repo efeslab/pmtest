@@ -3,13 +3,13 @@ NUM_CORES	:= 1
 endif
 
 CC			:= -gcc
-CXX			:= -g++-4.8
+CXX			:= -g++
 CFLAGS		:= -fPIC -std=c11 -DPMTEST_EXCLUDE -DNUM_CORES=$(NUM_CORES)
 CXXFLAGS	:= -std=c++11 -fPIC -DPMTEST_EXCLUDE -DNUM_CORES=$(NUM_CORES) #-pedantic-errors -Wall -Wextra -Werror
 LDFLAGS		:= -L/usr/lib -lstdc++ -lm -pthread #-lbacktrace -ldl
 INCLUDE		:= -Iinclude/
 
-BUILD		:= ./build
+BUILD		?= ./build
 OBJ_DIR		:= $(BUILD)/objects
 APP_DIR   	:= $(BUILD)/apps
 LIB_DIR   	:= $(BUILD)/libs
