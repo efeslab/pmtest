@@ -81,10 +81,10 @@ build:
 	@mkdir -p $(OBJ_DIR)
 	@mkdir -p $(LIB_DIR)
 
-debug: CXXFLAGS += -DDEBUG -g -DDEBUG_FLAG=0
+debug: CXXFLAGS += -DDEBUG -DPMTEST_WARN -g -DDEBUG_FLAG=0
 debug: all
 
-release: CXXFLAGS += -O3
+release: CXXFLAGS += -O3 -DPMTEST_WARN
 release: all
 
 warning: CXXFLAGS += -O3 -DPMTEST_WARN -DDEBUG -g

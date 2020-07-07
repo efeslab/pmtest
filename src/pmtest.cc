@@ -259,7 +259,14 @@ bool timestamp_isexacttime(int t)
 	return (t >= 0);
 }
 
-inline int VeriProc_Assign(Metadata *cur, interval_set_addr &ExcludeInfo, interval_set_addr &PersistInfo, interval_set_addr &TransactionAddInfo, interval_map_addr_timestamp &OrderInfo, FastVector<Metadata *> &TransactionPersistInfo, int &timestamp, int &transactionCount)
+inline int VeriProc_Assign(Metadata *cur, 
+						   interval_set_addr &ExcludeInfo, 
+						   interval_set_addr &PersistInfo, 
+						   interval_set_addr &TransactionAddInfo, 
+						   interval_map_addr_timestamp &OrderInfo, 
+						   FastVector<Metadata *> &TransactionPersistInfo, 
+						   int &timestamp, 
+						   int &transactionCount)
 {
 	
 	if (cur->size > 0) {
@@ -268,10 +275,11 @@ inline int VeriProc_Assign(Metadata *cur, interval_set_addr &ExcludeInfo, interv
 		discrete_interval<size_t> addrinterval = interval<size_t>::right_open(startaddr, endaddr);
 		
 		LOG(
-			"%s %p %d %s %u\n",
+			"%s %p %d %s %s %u\n",
 			MetadataTypeStr[_ASSIGN],
 			cur->addr,
 			cur->size,
+			cur->func_name,
 			cur->file_name,
 			cur->line_num);
 	#ifdef PMTEST_EXCLUDE
@@ -292,7 +300,8 @@ inline int VeriProc_Assign(Metadata *cur, interval_set_addr &ExcludeInfo, interv
 				filename_temp[FILENAME_LEN] = '\0';
 				printf(
 					COLOR_RED "ASSIGN ERROR: " COLOR_RESET
-					"%s:%u: Address range [0x%lx, 0x%lx) is not TransactionAdded before modified.\n",
+					"%s:%s:%u: Address range [0x%lx, 0x%lx) is not TransactionAdded before modified.\n",
+					cur->func_name,
 					filename_temp,
 					cur->line_num,
 					addrinterval.lower(),
@@ -310,10 +319,11 @@ inline int VeriProc_Flush(Metadata *cur, interval_set_addr &ExcludeInfo, interva
 		size_t startaddr = (size_t)(cur->addr);
 		size_t endaddr = startaddr + cur->size;
 		discrete_interval<size_t> addrinterval = interval<size_t>::right_open(startaddr, endaddr);
-		LOG("%s %p %d %s %u\n",
+		LOG("%s %p %d %s %s %u\n",
 			MetadataTypeStr[_FLUSH],
 			cur->addr,
 			cur->size,
+			cur->func_name,
 			cur->file_name,
 			cur->line_num);
 	#ifdef PMTEST_EXCLUDE
@@ -330,7 +340,8 @@ inline int VeriProc_Flush(Metadata *cur, interval_set_addr &ExcludeInfo, interva
 			filename_temp[FILENAME_LEN] = '\0';
 			printf(
 				COLOR_YELLOW "FLUSH WARNING: " COLOR_RESET
-				"%s:%u: Address range [0x%lx, 0x%lx) is not modified, no need to flush.\n",
+				"%s:%s:%u: Address range [0x%lx, 0x%lx) is not modified, no need to flush.\n",
+				cur->func_name,
 				filename_temp,
 				cur->line_num,
 				addrinterval.lower(),
@@ -348,8 +359,9 @@ inline int VeriProc_Flush(Metadata *cur, interval_set_addr &ExcludeInfo, interva
 
 inline int VeriProc_Fence(Metadata *cur, int &timestamp)
 {
-	LOG("%s %s %u\n",
+	LOG("%s %s %s %u\n",
 		MetadataTypeStr[_FENCE],
+		cur->func_name,
 		cur->file_name,
 		cur->line_num);
 	timestamp++;
@@ -362,10 +374,11 @@ inline int VeriProc_Persist(Metadata *cur, interval_set_addr &ExcludeInfo, inter
 		size_t startaddr = (size_t)(cur->addr);
 		size_t endaddr = startaddr + cur->size;
 		discrete_interval<size_t> addrinterval = interval<size_t>::right_open(startaddr, endaddr);
-		LOG("%s %p %d %s %u\n",
+		LOG("%s %p %d %s %s %u\n",
 			MetadataTypeStr[_PERSIST],
 			cur->addr,
 			cur->size,
+			cur->func_name,
 			cur->file_name,
 			cur->line_num);
 	#ifdef PMTEST_EXCLUDE
@@ -384,7 +397,8 @@ inline int VeriProc_Persist(Metadata *cur, interval_set_addr &ExcludeInfo, inter
 			filename_temp[FILENAME_LEN] = '\0';
 			printf(
 				COLOR_RED "PERSIST ERROR: " COLOR_RESET
-				"%s:%u: Address range [0x%lx, 0x%lx) not persisted.\n",
+				"%s:%s:%u: Address range [0x%lx, 0x%lx) not persisted.\n",
+				cur->func_name,
 				filename_temp,
 				cur->line_num,
 				addrinterval.lower(),
@@ -405,12 +419,13 @@ inline int VeriProc_Order(Metadata *cur, interval_set_addr &ExcludeInfo, interva
 		startaddr = (size_t)(cur->addr_late);
 		endaddr = startaddr + cur->size_late;
 		discrete_interval<size_t> addrinterval_late = interval<size_t>::right_open(startaddr, endaddr);
-		LOG("%s %p %d %p %d %s %u\n",
+		LOG("%s %p %d %p %d %s %s %u\n",
 			MetadataTypeStr[_ORDER],
 			cur->addr,
 			cur->size,
 			cur->addr_late,
 			cur->size_late,
+			cur->func_name,
 			cur->file_name,
 			cur->line_num);
 	#ifdef PMTEST_EXCLUDE
@@ -447,7 +462,8 @@ inline int VeriProc_Order(Metadata *cur, interval_set_addr &ExcludeInfo, interva
 				filename_temp[FILENAME_LEN] = '\0';
 				printf(
 					COLOR_RED "ORDER ERROR: " COLOR_RESET
-					"%s:%u: Address range [0x%lx, 0x%lx) not before [0x%lx, 0x%lx).\n",
+					"%s:%s:%u: Address range [0x%lx, 0x%lx) not before [0x%lx, 0x%lx).\n",
+					cur->func_name,
 					filename_temp,
 					cur->line_num,
 					(size_t)(cur->addr),
@@ -463,7 +479,8 @@ inline int VeriProc_Order(Metadata *cur, interval_set_addr &ExcludeInfo, interva
 			filename_temp[FILENAME_LEN] = '\0';
 			printf(
 				COLOR_RED "ORDER ERROR: " COLOR_RESET
-				"%s:%u: Queried address range not yet assigned.\n",
+				"%s:%s:%u: Queried address range not yet assigned.\n",
+				cur->func_name,
 				filename_temp,
 				cur->line_num);
 			return -1;
@@ -478,8 +495,9 @@ inline void VeriProc_TransactionBegin(Metadata *cur, FastVector<Metadata *> &Tra
 		TransactionPersistInfo.clear();
 	}
 	transactionCount++;
-	LOG("%s %s %u\n",
+	LOG("%s %s %s %u\n",
 		MetadataTypeStr[_TRANSACTIONBEGIN],
+		cur->func_name,
 		cur->file_name,
 		cur->line_num);
 }
@@ -487,8 +505,9 @@ inline void VeriProc_TransactionBegin(Metadata *cur, FastVector<Metadata *> &Tra
 inline void VeriProc_TransactionEnd(Metadata *cur, interval_set_addr &ExcludeInfo, interval_set_addr &PersistInfo, FastVector<Metadata *> &TransactionPersistInfo, int &transactionCount)
 {
 	transactionCount--;
-	LOG("%s %s %u\n",
+	LOG("%s %s %s %u\n",
 		MetadataTypeStr[_TRANSACTIONEND],
+		cur->func_name,
 		cur->file_name,
 		cur->line_num);
 	if (transactionCount == 0) {
@@ -504,10 +523,11 @@ inline void VeriProc_TransactionAdd(Metadata *cur, interval_set_addr &Transactio
 {
 	if (transactionCount > 0) {
 		if (cur->size > 0) {
-			LOG("%s %p %d %s %u\n",
+			LOG("%s %p %d %s %s %u\n",
 				MetadataTypeStr[_TRANSACTIONADD],
 				cur->addr,
 				cur->size,
+				cur->func_name,
 				cur->file_name,
 				cur->line_num);
 			size_t startaddr = (size_t)(cur->addr);
@@ -521,7 +541,8 @@ inline void VeriProc_TransactionAdd(Metadata *cur, interval_set_addr &Transactio
 				filename_temp[FILENAME_LEN] = '\0';
 				printf(
 					COLOR_YELLOW "TRANSACTIONADD WARNING: " COLOR_RESET
-					"%s:%u: Address range [0x%lx, 0x%lx) overlaps with previously TransactionAdded addresses.\n",
+					"%s:%s:%u: Address range [0x%lx, 0x%lx) overlaps with previously TransactionAdded addresses.\n",
+					cur->func_name,
 					filename_temp,
 					cur->line_num,
 					addrinterval.lower(),
@@ -540,10 +561,11 @@ inline void VeriProc_Exclude(Metadata *cur, interval_set_addr &ExcludeInfo)
 		size_t endaddr = startaddr + cur->size;
 		discrete_interval<size_t> addrinterval = interval<size_t>::right_open(startaddr, endaddr);
 		LOG(
-			"%s %p %d %s %u\n",
+			"%s %p %d %s %s %u\n",
 			MetadataTypeStr[_EXCLUDE],
 			cur->addr,
 			cur->size,
+			cur->func_name,
 			cur->file_name,
 			cur->line_num);
 		ExcludeInfo += addrinterval;
@@ -557,10 +579,11 @@ inline void VeriProc_Include(Metadata *cur, interval_set_addr &ExcludeInfo)
 		size_t endaddr = startaddr + cur->size;
 		discrete_interval<size_t> addrinterval = interval<size_t>::right_open(startaddr, endaddr);
 		LOG(
-			"%s %p %d %s %u\n",
+			"%s %p %d %s %s %u\n",
 			MetadataTypeStr[_INCLUDE],
 			cur->addr,
 			cur->size,
+			cur->func_name,
 			cur->file_name,
 			cur->line_num);
 		ExcludeInfo -= addrinterval;
@@ -719,7 +742,43 @@ void C_getNewMetadataPtr() {
 	pmtest_cur_idx++;
 }
 
-void C_createMetadata_Assign(void *metadata_vector, void *addr, size_t size, const char file_name[], unsigned int line_num)
+/**
+ * Do file name copying.
+ * (iangneal): I'm tired of seeing this code snippet everywhere.
+ */
+static void copy_file_name(Metadata *m, const char file_name[])
+{
+	int file_offset = strlen(file_name) - FILENAME_LEN;
+	strncpy(m->file_name,
+			file_name + (file_offset>0 ? file_offset : 0),
+			FILENAME_LEN);
+}
+
+/**
+ * Do function name copying and checking.
+ * 
+ * Gives a fatal error if we can't copy the whole function name.
+ */
+
+static void copy_func_name(Metadata *m, const char func_name[])
+{
+	size_t fn_len = strlen(func_name);
+	if (fn_len >= FUNCNAME_LEN) {
+		fprintf(stderr, "Function named '%s' is %lu bytes long, too long for us!", func_name, fn_len);
+		exit(-1);
+	}
+
+	memset(m->func_name, 0, FUNCNAME_LEN);
+	strncpy(m->func_name, func_name, fn_len);
+}
+
+static void do_log_note(Metadata *m, const char info[]) 
+{
+	LOG_NOTE("create metadata %s %p, %d, %s, %s, %u\n", info,
+			 m->addr, m->size, m->func_name, m->file_name, m->line_num);
+}
+
+void C_createMetadata_Assign(void *metadata_vector, void *addr, size_t size, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
@@ -728,17 +787,16 @@ void C_createMetadata_Assign(void *metadata_vector, void *addr, size_t size, con
 		m->addr = addr;
 		m->size = size;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
-		LOG_NOTE("create metadata assign %p, %d, %s, %u\n", m->addr, m->size, m->file_name, m->line_num);
+
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
+		do_log_note(m, "assign");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
-void C_createMetadata_Flush(void *metadata_vector, void *addr, size_t size, const char file_name[], unsigned int line_num)
+void C_createMetadata_Flush(void *metadata_vector, void *addr, size_t size, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
@@ -747,70 +805,61 @@ void C_createMetadata_Flush(void *metadata_vector, void *addr, size_t size, cons
 		m->addr = addr;
 		m->size = size;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
-
-		LOG_NOTE("create metadata flush %p, %d, %s, %u\n", m->addr, m->size, m->file_name, m->line_num);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
+		do_log_note(m, "flush");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
 
-void C_createMetadata_Commit(void *metadata_vector, const char file_name[], unsigned int line_num)
+void C_createMetadata_Commit(void *metadata_vector, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
 		m->type = _COMMIT;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
 		LOG_NOTE("create metadata commit\n");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
 
-void C_createMetadata_Barrier(void *metadata_vector, const char file_name[], unsigned int line_num)
+void C_createMetadata_Barrier(void *metadata_vector, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
 		m->type = _BARRIER;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
 		LOG_NOTE("create metadata barrier\n");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
 
-void C_createMetadata_Fence(void *metadata_vector, const char file_name[], unsigned int line_num)
+void C_createMetadata_Fence(void *metadata_vector, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
 		m->type = _FENCE;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
 		LOG_NOTE("create metadata fence\n");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
 
-void C_createMetadata_Persist(void *metadata_vector, void *addr, size_t size, const char file_name[], unsigned int line_num)
+void C_createMetadata_Persist(void *metadata_vector, void *addr, size_t size, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
@@ -818,18 +867,16 @@ void C_createMetadata_Persist(void *metadata_vector, void *addr, size_t size, co
 		m->addr = addr;
 		m->size = size;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
-		LOG_NOTE("create metadata persist %p, %d, %s, %u\n", m->addr, m->size, m->file_name, m->line_num);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
+		do_log_note(m, "persist");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
 
-void C_createMetadata_Order(void *metadata_vector, void *addr, size_t size, void *addr_late, size_t size_late, const char file_name[], unsigned int line_num)
+void C_createMetadata_Order(void *metadata_vector, void *addr, size_t size, void *addr_late, size_t size_late, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
@@ -839,50 +886,43 @@ void C_createMetadata_Order(void *metadata_vector, void *addr, size_t size, void
 		m->addr_late = addr_late;
 		m->size_late = size_late;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
 
 		LOG_NOTE("create metadata order %p, %d, %p, %d, %s, %u\n", m->addr, m->size, m->addr_late, m->size_late, m->file_name, m->line_num);
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
-void C_createMetadata_TransactionBegin(void *metadata_vector, const char file_name[], unsigned int line_num)
+void C_createMetadata_TransactionBegin(void *metadata_vector, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
 		m->type = _TRANSACTIONBEGIN;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
 		LOG_NOTE("create metadata transactionbegin\n");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
-void C_createMetadata_TransactionEnd(void *metadata_vector, const char file_name[], unsigned int line_num)
+void C_createMetadata_TransactionEnd(void *metadata_vector, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
 		m->type = _TRANSACTIONEND;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
 		LOG_NOTE("create metadata transactionend\n");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
-void C_createMetadata_TransactionAdd(void *metadata_vector, void *addr, size_t size, const char file_name[], unsigned int line_num)
+void C_createMetadata_TransactionAdd(void *metadata_vector, void *addr, size_t size, const char func_name[], const char file_name[], unsigned int line_num)
 {
 	if (existVeriInstance) {
 		Metadata *m = new Metadata;
@@ -890,18 +930,15 @@ void C_createMetadata_TransactionAdd(void *metadata_vector, void *addr, size_t s
 		m->addr = addr;
 		m->size = size;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
-
-		LOG_NOTE("create metadata transactionadd %p, %d, %s, %u\n", m->addr, m->size, m->file_name, m->line_num);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
+		do_log_note(m, "transactionadd");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 }
 
-void C_createMetadata_Exclude(void *metadata_vector, void *addr, size_t size, const char file_name[], unsigned int line_num)
+void C_createMetadata_Exclude(void *metadata_vector, void *addr, size_t size, const char func_name[], const char file_name[], unsigned int line_num)
 {
 #ifdef PMTEST_EXCLUDE
 	if (existVeriInstance) {
@@ -910,18 +947,16 @@ void C_createMetadata_Exclude(void *metadata_vector, void *addr, size_t size, co
 		m->addr = addr;
 		m->size = size;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
-		LOG_NOTE("create metadata exclude %p, %d, %s, %u\n", m->addr, m->size, m->file_name, m->line_num);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
+		do_log_note(m, "exclude");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 #endif // PMTEST_EXCLUDE
 }
 
-void C_createMetadata_Include(void *metadata_vector, void *addr, size_t size, const char file_name[], unsigned int line_num)
+void C_createMetadata_Include(void *metadata_vector, void *addr, size_t size, const char func_name[], const char file_name[], unsigned int line_num)
 {
 #ifdef PMTEST_EXCLUDE
 	if (existVeriInstance) {
@@ -930,12 +965,10 @@ void C_createMetadata_Include(void *metadata_vector, void *addr, size_t size, co
 		m->addr = addr;
 		m->size = size;
 		m->line_num = line_num;
-		int file_offset = strlen(file_name) - FILENAME_LEN;
-		strncpy(
-			m->file_name,
-			file_name + (file_offset>0 ? file_offset : 0),
-			FILENAME_LEN);
-		LOG_NOTE("create metadata include %p, %d, %s, %u\n", m->addr, m->size, m->file_name, m->line_num);
+		copy_file_name(m, file_name);
+		copy_func_name(m, func_name);
+		
+		do_log_note(m, "include");
 		((FastVector<Metadata *> *)metadata_vector)->push_back(m);
 	}
 #endif // PMTEST_EXCLUDE

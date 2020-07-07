@@ -35,8 +35,8 @@ typedef enum MetadataType {
 // the corresponding MetadataTypeStr is defined in pmtest.cc
 
 
-#define FILENAME_LEN 48
-
+#define FILENAME_LEN 256
+#define FUNCNAME_LEN 1024
 
 typedef struct Metadata {
 	void *addr;
@@ -46,6 +46,8 @@ typedef struct Metadata {
 	unsigned int size_late;
 	unsigned int line_num;
 	char file_name[FILENAME_LEN];
+	// (iangneal): we need function location information
+	char func_name[FUNCNAME_LEN];
 } Metadata;
 
 /***********************************************
@@ -256,18 +258,18 @@ extern "C" void C_getVeriDefault(void *);
 
 extern "C" void *C_createMetadataVector();
 extern "C" void C_deleteMetadataVector(void *);
-extern "C" void C_createMetadata_Assign(void *, void *, size_t, const char[], unsigned int);
-extern "C" void C_createMetadata_Flush(void *, void *, size_t, const char[], unsigned int);
-extern "C" void C_createMetadata_Commit(void *, const char[], unsigned int);
-extern "C" void C_createMetadata_Barrier(void *, const char[], unsigned int);
-extern "C" void C_createMetadata_Fence(void *, const char[], unsigned int);
-extern "C" void C_createMetadata_Persist(void *, void *, size_t, const char[], unsigned int);
-extern "C" void C_createMetadata_Order(void *, void *, size_t, void *, size_t, const char[], unsigned int);
-extern "C" void C_createMetadata_TransactionBegin(void *, const char[], unsigned int);
-extern "C" void C_createMetadata_TransactionEnd(void *, const char[], unsigned int);
-extern "C" void C_createMetadata_TransactionAdd(void *, void *, size_t, const char[], unsigned int);
-extern "C" void C_createMetadata_Exclude(void *, void *, size_t, const char[], unsigned int);
-extern "C" void C_createMetadata_Include(void *, void *, size_t, const char[], unsigned int);
+extern "C" void C_createMetadata_Assign(void *, void *, size_t, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Flush(void *, void *, size_t, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Commit(void *, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Barrier(void *, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Fence(void *, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Persist(void *, void *, size_t, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Order(void *, void *, size_t, void *, size_t, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_TransactionBegin(void *, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_TransactionEnd(void *, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_TransactionAdd(void *, void *, size_t, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Exclude(void *, void *, size_t, const char[], const char[], unsigned int);
+extern "C" void C_createMetadata_Include(void *, void *, size_t, const char[], const char[], unsigned int);
 extern "C" void C_registerVariable(char *, void *, size_t);
 extern "C" void C_unregisterVariable(char *);
 extern "C" void* C_getVariable(char *, size_t *);
