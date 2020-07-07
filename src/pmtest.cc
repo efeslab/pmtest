@@ -1,8 +1,10 @@
 #include "pmtest.hh"
 #include <stdarg.h>
+#include <execinfo.h>
 
 #define COLOR_RED "\x1B[31m"
 #define COLOR_YELLOW "\x1B[33m"
+#define COLOR_GRAY "\x1B[37m"
 #define COLOR_RESET "\x1B[0m"
 
 //size_t PMTest::VeriNumber;
@@ -261,18 +263,24 @@ bool timestamp_isexacttime(int t)
 
 /**
  * Output stack frame information in log format.
- * (iangneal): Just do this for bugs.
+ * 
+ * NOTE: should do this for all logged events
  */
-static void output_stack_frame(void)
+static void output_stack_frame(Metadata *m)
 {
-    printf(
-            COLOR_RED "ASSIGN ERROR: " COLOR_RESET
-            "%s:%s:%u: Address range [0x%lx, 0x%lx) is not TransactionAdded before modified.\n",
-            cur->func_name,
-            filename_temp,
-            cur->line_num,
-            addrinterval.lower(),
-            addrinterval.upper());
+    assert(m->n_stack_symbols > BACKTRACE_SKIP);
+
+    // skip pmtest functions
+    printf(COLOR_GRAY "STACK TRACE: %s" COLOR_RESET, m->stack_symbols[BACKTRACE_SKIP]);
+    for (int i = BACKTRACE_SKIP + 1; i < m->n_stack_symbols; ++i) {
+        printf(";%s", m->stack_symbols[i]);
+    }  
+    // printf(COLOR_GRAY "STACK TRACE: \n\t[0] %s" COLOR_RESET, 
+    //        m->stack_symbols[0]);
+    // for (int i = 1; i < m->n_stack_symbols; ++i) {
+    //     printf("\n\t[%d] %s", i, m->stack_symbols[i]);
+    // }
+    printf("\n");
 }
 
 inline int VeriProc_Assign(Metadata *cur, 
@@ -298,6 +306,7 @@ inline int VeriProc_Assign(Metadata *cur,
             cur->func_name,
             cur->file_name,
             cur->line_num);
+        output_stack_frame(cur);
     #ifdef PMTEST_EXCLUDE
         auto it = ExcludeInfo.find(addrinterval);
         if (it != ExcludeInfo.end()) {
@@ -342,6 +351,7 @@ inline int VeriProc_Flush(Metadata *cur, interval_set_addr &ExcludeInfo, interva
             cur->func_name,
             cur->file_name,
             cur->line_num);
+        output_stack_frame(cur);
     #ifdef PMTEST_EXCLUDE
         auto it = ExcludeInfo.find(addrinterval);
         if (it != ExcludeInfo.end()) {
@@ -380,6 +390,7 @@ inline int VeriProc_Fence(Metadata *cur, int &timestamp)
         cur->func_name,
         cur->file_name,
         cur->line_num);
+    output_stack_frame(cur);
     timestamp++;
     return 0;
 }
@@ -397,6 +408,7 @@ inline int VeriProc_Persist(Metadata *cur, interval_set_addr &ExcludeInfo, inter
             cur->func_name,
             cur->file_name,
             cur->line_num);
+        output_stack_frame(cur);
     #ifdef PMTEST_EXCLUDE
         auto it = ExcludeInfo.find(addrinterval);
         if (it != ExcludeInfo.end()) {
@@ -444,6 +456,7 @@ inline int VeriProc_Order(Metadata *cur, interval_set_addr &ExcludeInfo, interva
             cur->func_name,
             cur->file_name,
             cur->line_num);
+        output_stack_frame(cur);
     #ifdef PMTEST_EXCLUDE
         auto it = ExcludeInfo.find(addrinterval);
         if (it != ExcludeInfo.end()) {
@@ -516,6 +529,7 @@ inline void VeriProc_TransactionBegin(Metadata *cur, FastVector<Metadata *> &Tra
         cur->func_name,
         cur->file_name,
         cur->line_num);
+    output_stack_frame(cur);
 }
 
 inline void VeriProc_TransactionEnd(Metadata *cur, interval_set_addr &ExcludeInfo, interval_set_addr &PersistInfo, FastVector<Metadata *> &TransactionPersistInfo, int &transactionCount)
@@ -526,6 +540,7 @@ inline void VeriProc_TransactionEnd(Metadata *cur, interval_set_addr &ExcludeInf
         cur->func_name,
         cur->file_name,
         cur->line_num);
+    output_stack_frame(cur);
     if (transactionCount == 0) {
         for (int i = 0; i < TransactionPersistInfo.size(); i++) {
             TransactionPersistInfo[i]->type = _PERSIST;
@@ -546,6 +561,7 @@ inline void VeriProc_TransactionAdd(Metadata *cur, interval_set_addr &Transactio
                 cur->func_name,
                 cur->file_name,
                 cur->line_num);
+            output_stack_frame(cur);
             size_t startaddr = (size_t)(cur->addr);
             size_t endaddr = startaddr + cur->size;
             discrete_interval<size_t> addrinterval = interval<size_t>::right_open(startaddr, endaddr);
@@ -584,6 +600,7 @@ inline void VeriProc_Exclude(Metadata *cur, interval_set_addr &ExcludeInfo)
             cur->func_name,
             cur->file_name,
             cur->line_num);
+        output_stack_frame(cur);
         ExcludeInfo += addrinterval;
     }
 }
@@ -602,6 +619,7 @@ inline void VeriProc_Include(Metadata *cur, interval_set_addr &ExcludeInfo)
             cur->func_name,
             cur->file_name,
             cur->line_num);
+        output_stack_frame(cur);
         ExcludeInfo -= addrinterval;
     }
 }
@@ -741,6 +759,11 @@ void C_deleteMetadataVector(void *victim)
 {
     FastVector<Metadata *> *temp = (FastVector<Metadata *> *)victim;
     for (int i = 0; i != temp->size(); i++) {
+        // (iangneal): delete the backtrace symbols
+        for (int j = 0; j < (*temp)[i]->n_stack_symbols; ++j) {
+            free((*temp)[i]->stack_symbols[j]);
+        }
+
         delete ((*temp)[i]);
     }
 }
@@ -788,6 +811,33 @@ static void copy_func_name(Metadata *m, const char func_name[])
     strncpy(m->func_name, func_name, fn_len);
 }
 
+/**
+ * Get the current stack trace of the calling function to add to the metadata
+ * tracking object.
+ * 
+ * NOTE: Need to delete stack symbols at end of life.
+ */
+
+static void copy_stack_symbols(Metadata *m)
+{
+    void *bt[BACKTRACE_SZ];
+
+    m->n_stack_symbols = backtrace(bt, BACKTRACE_SZ);
+    if (m->n_stack_symbols == BACKTRACE_SZ) {
+        fprintf(stderr, "not enough room!\n");
+        exit(-1);
+    } else if (m->n_stack_symbols <= BACKTRACE_SKIP) {
+        fprintf(stderr, "not enough stack!\n");
+        exit(-1);
+    }
+
+    m->stack_symbols = backtrace_symbols(bt, m->n_stack_symbols);
+    assert(m->stack_symbols);
+}
+
+/**
+ * Do a standardized log message for operations with addr and size.
+ */
 static void do_log_note(Metadata *m, const char info[]) 
 {
     LOG_NOTE("create metadata %s %p, %d, %s, %s, %u\n", info,
@@ -806,6 +856,7 @@ void C_createMetadata_Assign(void *metadata_vector, void *addr, size_t size, con
 
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         do_log_note(m, "assign");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -823,6 +874,7 @@ void C_createMetadata_Flush(void *metadata_vector, void *addr, size_t size, cons
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         do_log_note(m, "flush");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -838,6 +890,7 @@ void C_createMetadata_Commit(void *metadata_vector, const char func_name[], cons
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         LOG_NOTE("create metadata commit\n");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -853,6 +906,7 @@ void C_createMetadata_Barrier(void *metadata_vector, const char func_name[], con
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         LOG_NOTE("create metadata barrier\n");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -868,6 +922,7 @@ void C_createMetadata_Fence(void *metadata_vector, const char func_name[], const
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         LOG_NOTE("create metadata fence\n");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -885,6 +940,7 @@ void C_createMetadata_Persist(void *metadata_vector, void *addr, size_t size, co
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         do_log_note(m, "persist");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -904,6 +960,7 @@ void C_createMetadata_Order(void *metadata_vector, void *addr, size_t size, void
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
 
         LOG_NOTE("create metadata order %p, %d, %p, %d, %s, %u\n", m->addr, m->size, m->addr_late, m->size_late, m->file_name, m->line_num);
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -918,6 +975,7 @@ void C_createMetadata_TransactionBegin(void *metadata_vector, const char func_na
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         LOG_NOTE("create metadata transactionbegin\n");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -932,6 +990,7 @@ void C_createMetadata_TransactionEnd(void *metadata_vector, const char func_name
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         LOG_NOTE("create metadata transactionend\n");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -948,6 +1007,7 @@ void C_createMetadata_TransactionAdd(void *metadata_vector, void *addr, size_t s
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         do_log_note(m, "transactionadd");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -965,6 +1025,7 @@ void C_createMetadata_Exclude(void *metadata_vector, void *addr, size_t size, co
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         do_log_note(m, "exclude");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);
@@ -983,6 +1044,7 @@ void C_createMetadata_Include(void *metadata_vector, void *addr, size_t size, co
         m->line_num = line_num;
         copy_file_name(m, file_name);
         copy_func_name(m, func_name);
+        copy_stack_symbols(m);
         
         do_log_note(m, "include");
         ((FastVector<Metadata *> *)metadata_vector)->push_back(m);

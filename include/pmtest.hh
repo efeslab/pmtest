@@ -37,6 +37,8 @@ typedef enum MetadataType {
 
 #define FILENAME_LEN 256
 #define FUNCNAME_LEN 1024
+#define BACKTRACE_SZ 1024
+#define BACKTRACE_SKIP 2
 
 typedef struct Metadata {
 	void *addr;
@@ -46,8 +48,19 @@ typedef struct Metadata {
 	unsigned int size_late;
 	unsigned int line_num;
 	char file_name[FILENAME_LEN];
-	// (iangneal): we need function location information
+	/**
+	 * (iangneal): We need function location information.
+	 * 
+	 * This is made slightly redundant with the stack symbols, but it's easier
+	 * to read human-wise, so we'll stick with is for now.
+	 */
 	char func_name[FUNCNAME_LEN];
+	/**
+	 * (iangneal): We also want detailed information about the precise location
+	 * of every modification, so we will accumulate stack symbols.
+	 */
+	char **stack_symbols;
+	int n_stack_symbols;
 } Metadata;
 
 /***********************************************
